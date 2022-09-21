@@ -1,0 +1,111 @@
+//
+//  MonthlyAppWidget.swift
+//  MonthlyAppWidget
+//
+//  Created by Berkay Disli on 20.09.2022.
+//
+
+import WidgetKit
+import SwiftUI
+
+struct Provider: TimelineProvider {
+    func placeholder(in context: Context) -> DayEntry {
+        DayEntry(date: Date())
+    }
+    
+    func getSnapshot(in context: Context, completion: @escaping (DayEntry) -> ()) {
+        let entry = DayEntry(date: Date())
+        completion(entry)
+    }
+    
+    func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
+        var entries: [DayEntry] = []
+        
+        let currentDate = Date()
+        for dayOffset in 0 ..< 7 {
+            let entryDate = Calendar.current.date(byAdding: .day, value: dayOffset, to: currentDate)!
+            let startOfDate = Calendar.current.startOfDay(for: entryDate)
+            let entry = DayEntry(date: startOfDate)
+            entries.append(entry)
+        }
+        
+        let timeline = Timeline(entries: entries, policy: .atEnd)
+        completion(timeline)
+    }
+}
+
+struct DayEntry: TimelineEntry {
+    let date: Date
+}
+
+struct MonthlyAppWidgetEntryView : View {
+    var entry: Provider.Entry
+    var config: MonthConfig
+    
+    init(entry: DayEntry) {
+        self.entry = entry
+        self.config = MonthConfig.determineConfig(from: entry.date)
+    }
+    
+    var body: some View {
+        ZStack {
+            ContainerRelativeShape()
+                .fill(config.backgroundColor.gradient)
+            VStack {
+                HStack(spacing: 4) {
+                    Text(config.emojiText)
+                        .font(.title)
+                    Text(entry.date.weekdayDisplayFormat)
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .minimumScaleFactor(0.6)
+                        .foregroundColor(config.weekdayTextColor)
+                    
+                    Spacer()
+                }
+                Text(entry.date.dayDisplayFormat)
+                    .font(.system(size: 80))
+                    .fontWeight(.heavy)
+                    .foregroundColor(config.dayTextColor)
+            }
+            .padding()
+        }
+    }
+}
+
+@main
+struct MonthlyAppWidget: Widget {
+    let kind: String = "MonthlyAppWidget"
+    
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: Provider()) { entry in
+            MonthlyAppWidgetEntryView(entry: entry)
+        }
+        .configurationDisplayName("Monthly Widget")
+        .description("Theme changes based on month.")
+        .supportedFamilies([.systemSmall])
+    }
+}
+
+struct MonthlyAppWidget_Previews: PreviewProvider {
+    static var previews: some View {
+        MonthlyAppWidgetEntryView(entry: DayEntry(date: dateToDisplay(month: 4, day: 2)))
+            .previewContext(WidgetPreviewContext(family: .systemSmall))
+    }
+    
+    static func dateToDisplay(month: Int, day: Int) -> Date {
+        let components = DateComponents(calendar: Calendar.current, year: 2022, month: month, day: day)
+        
+        return Calendar.current.date(from: components)!
+    }
+}
+
+extension Date {
+    var weekdayDisplayFormat: String {
+        self.formatted(.dateTime.weekday(.wide))
+    }
+    
+    var dayDisplayFormat: String {
+        self.formatted(.dateTime.day())
+    }
+}
